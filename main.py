@@ -1,5 +1,7 @@
 import re
 import sys
+import os
+from datetime import datetime
 
 
 def simplify_method_label(raw_label: str) -> str:
@@ -79,15 +81,22 @@ def convert_to_clean_graphviz(input_str: str) -> str:
 
 
 def main(graph_raw_path: str) -> None:
+    # Read raw DOT
     with open(graph_raw_path, "r") as f:
         raw = f.read()
 
     clean = convert_to_clean_graphviz(raw)
 
-    with open("graph_clean.dot", "w") as f:
+    os.makedirs("out", exist_ok=True)
+
+    # ✅ Create timestamped filename
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    output_path = f"out/graph_clean_{timestamp}.dot"
+
+    with open(output_path, "w") as f:
         f.write(clean)
 
-    print("Wrote cleaned file: graph_clean.dot")
+    print(f"✅ Wrote cleaned file: {output_path}")
 
 
 if __name__ == "__main__":
