@@ -96,6 +96,9 @@ def main(graph_raw_path: str) -> None:
     with open(output_path, "w") as f:
         f.write(clean)
 
+    with open("out/graph_clean_temp.dot", "w") as f:
+        f.write(clean)
+
     print(f"✅ Wrote cleaned file: {output_path}")
 
 
