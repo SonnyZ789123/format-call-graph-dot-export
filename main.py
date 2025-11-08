@@ -31,16 +31,21 @@ def simplify_method_label(raw_label: str) -> str:
 def convert_to_clean_graphviz(input_str: str) -> str:
     edges = []
     nodes = set()
-    pattern = re.compile(r'"?<(.*?)>"?\s*->\s*"?<(.*?)>"?;')
+    pattern = re.compile(
+        r'"?<([^>]+)>"?\s*->\s*"?<([^>]+)>"?\s*(?:\[\s*label\s*=\s*"([^"]+)"\s*\])?'
+    )
 
     for line in input_str.splitlines():
         match = pattern.search(line)
         if not match:
             continue
 
-        src = simplify_method_label(f"<{match.group(1)}>")
-        dst = simplify_method_label(f"<{match.group(2)}>")
-        edges.append((src, dst))
+        src_raw, dst_raw, label = match.groups()
+
+        src = simplify_method_label(f"<{src_raw}>")
+        dst = simplify_method_label(f"<{dst_raw}>")
+
+        edges.append((src, dst, label))
         nodes.add(src)
         nodes.add(dst)
 
@@ -72,9 +77,12 @@ def convert_to_clean_graphviz(input_str: str) -> str:
             lines.append(f'        "{n}" [label="{method_only}"];')
         lines.append('    }')
 
-    # Add edges
-    for src, dst in edges:
-        lines.append(f'    "{src}" -> "{dst}";')
+    # ✅ Add edges with labels preserved
+    for src, dst, label in edges:
+        if label:
+            lines.append(f'    "{src}" -> "{dst}" [label="{label}"];')
+        else:
+            lines.append(f'    "{src}" -> "{dst}";')
 
     lines.append('}')
     return "\n".join(lines)
