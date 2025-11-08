@@ -1,5 +1,7 @@
-python format_call_graph_dot_export.py ../../library-application/graph_raw.dot
+set -e
 
-dot -Tsvg graph_clean.dot -o graph_clean.svg
+python3 main.py ../../library-application/graph_raw.dot
 
-open graph_clean.svg
+dot -Tsvg out/graph_clean_temp.dot -o out/graph_clean_temp.svg
+
+open out/graph_clean_temp.svg
