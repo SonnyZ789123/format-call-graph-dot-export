@@ -56,7 +56,7 @@ def simplify_method_label(raw_label: str) -> str:
     return f"{cls_short}.{method}"
 
 
-def convert_to_clean_graphviz(input_str: str) -> str:
+def convert_to_clean_graphviz(input_str: str, scores_map: dict[str, float]) -> str:
     edges = []
     nodes = set()
 
@@ -72,7 +72,6 @@ def convert_to_clean_graphviz(input_str: str) -> str:
 
         src_raw, dst_raw, label = match.groups()
 
-        # ✅ Keep *raw* signatures for IDs (important for PageRank lookup)
         src_raw_full = f"<{src_raw}>"
         dst_raw_full = f"<{dst_raw}>"
 
@@ -99,18 +98,27 @@ def convert_to_clean_graphviz(input_str: str) -> str:
         '    node [shape=box, fontsize=10];'
     ]
 
-    # ✅ Create clusters, display simplified method name
+    # ✅ Create clusters, display simplified method name with score if available
     for cls, raw_nodes in sorted(clusters.items()):
         lines.append(f'    subgraph cluster_{cls} {{')
         lines.append(f'        label = "{cls}";')
         lines.append('        style=rounded;')
+
         for raw in sorted(raw_nodes):
             simplified = simplify_method_label(raw)
-            method_only = simplified.split(".", 1)[1]  # remove class prefix
-            lines.append(f'        "{raw}" [label="{method_only}"];')
+            method_only = simplified.split(".", 1)[1]
+
+            score = scores_map.get(raw, None)
+            if score is not None:
+                label = f"{method_only}\\n({score:.4f})"
+            else:
+                label = method_only
+
+            lines.append(f'        "{raw}" [label="{label}"];')
+
         lines.append('    }')
 
-    # ✅ Add edges, node IDs remain RAW, labels preserved
+    # ✅ Add edges, node IDs remain RAW
     for src_raw, dst_raw, label in edges:
         if label:
             lines.append(f'    "{src_raw}" -> "{dst_raw}" [label="{label}"];')
@@ -121,12 +129,14 @@ def convert_to_clean_graphviz(input_str: str) -> str:
     return "\n".join(lines)
 
 
-def main(graph_raw_path: str) -> None:
+def main(graph_raw_path: str, scores_path: str) -> None:
     # Read raw DOT
     with open(graph_raw_path, "r") as f:
         raw = f.read()
 
-    clean = convert_to_clean_graphviz(raw)
+    scores = get_page_rank_scores_as_map(scores_path)
+
+    clean = convert_to_clean_graphviz(raw, scores)
 
     os.makedirs("out", exist_ok=True)
 
@@ -145,7 +155,7 @@ def main(graph_raw_path: str) -> None:
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python format_call_graph_dot_export.py <graphPath>")
+        print("Usage: python format_call_graph_dot_export.py <graphPath> <scoresPath>")
         sys.exit(1)
 
-    main(sys.argv[1])
+    main(sys.argv[1], sys.argv[2])
