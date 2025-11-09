@@ -59,6 +59,8 @@ def simplify_method_label(raw_label: str) -> str:
 def convert_to_clean_graphviz(input_str: str) -> str:
     edges = []
     nodes = set()
+
+    # ✅ Matches lines WITH or WITHOUT edge labels (your new format)
     pattern = re.compile(
         r'"?<([^>]+)>"?\s*->\s*"?<([^>]+)>"?\s*(?:\[\s*label\s*=\s*"([^"]+)"\s*\])?'
     )
@@ -70,47 +72,50 @@ def convert_to_clean_graphviz(input_str: str) -> str:
 
         src_raw, dst_raw, label = match.groups()
 
-        src = simplify_method_label(f"<{src_raw}>")
-        dst = simplify_method_label(f"<{dst_raw}>")
+        # ✅ Keep *raw* signatures for IDs (important for PageRank lookup)
+        src_raw_full = f"<{src_raw}>"
+        dst_raw_full = f"<{dst_raw}>"
 
-        edges.append((src, dst, label))
-        nodes.add(src)
-        nodes.add(dst)
+        edges.append((src_raw_full, dst_raw_full, label))
+        nodes.add(src_raw_full)
+        nodes.add(dst_raw_full)
 
-    # Group nodes by class = text before the first "."
+    # Group nodes by class name extracted from *simplified* label (for clustering only)
     clusters = {}
-    for node in nodes:
-        cls = node.split(".", 1)[0]
-        clusters.setdefault(cls, []).append(node)
+    for raw in nodes:
+        simplified = simplify_method_label(raw)
+        cls = simplified.split(".", 1)[0]
+        clusters.setdefault(cls, []).append(raw)
 
     lines = [
         'digraph ObjectGraph {',
         '    rankdir=LR;',
         '    graph [',
-        '        ranksep=1.8,',  # Keep vertical spacing tight
-        '        nodesep=0.1,',  # Increase horizontal spacing
+        '        ranksep=1.8,',  # vertical spacing
+        '        nodesep=0.1,',  # horizontal spacing
         '        overlap=false,',
         '        splines=true',
         '    ];',
         '    node [shape=box, fontsize=10];'
     ]
 
-    # Create subgraph clusters
-    for cls, class_nodes in sorted(clusters.items()):
+    # ✅ Create clusters, display simplified method name
+    for cls, raw_nodes in sorted(clusters.items()):
         lines.append(f'    subgraph cluster_{cls} {{')
         lines.append(f'        label = "{cls}";')
         lines.append('        style=rounded;')
-        for n in sorted(class_nodes):
-            method_only = n.split(".", 1)[1]  # ✅ remove class name
-            lines.append(f'        "{n}" [label="{method_only}"];')
+        for raw in sorted(raw_nodes):
+            simplified = simplify_method_label(raw)
+            method_only = simplified.split(".", 1)[1]  # remove class prefix
+            lines.append(f'        "{raw}" [label="{method_only}"];')
         lines.append('    }')
 
-    # ✅ Add edges with labels preserved
-    for src, dst, label in edges:
+    # ✅ Add edges, node IDs remain RAW, labels preserved
+    for src_raw, dst_raw, label in edges:
         if label:
-            lines.append(f'    "{src}" -> "{dst}" [label="{label}"];')
+            lines.append(f'    "{src_raw}" -> "{dst_raw}" [label="{label}"];')
         else:
-            lines.append(f'    "{src}" -> "{dst}";')
+            lines.append(f'    "{src_raw}" -> "{dst_raw}";')
 
     lines.append('}')
     return "\n".join(lines)
