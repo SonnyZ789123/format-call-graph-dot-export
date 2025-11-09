@@ -3,6 +3,34 @@ import sys
 import os
 from datetime import datetime
 
+def get_page_rank_scores_as_map(path_to_scores: str) -> dict[str, float]:
+    """
+    Reads a PageRank score file where each line has the format:
+        <signature> | score
+
+    Example line:
+        <java.util.List: java.util.Iterator iterator()> | 0.01638346390050937
+
+    Returns:
+        A dictionary mapping the FULL RAW method signature string to its score.
+        Keys remain in the angle bracket format so they can match the call graph.
+    """
+    scores = {}
+
+    with open(path_to_scores, "r") as f:
+        for line in f:
+            line = line.strip()
+            if not line or "|" not in line:
+                continue
+
+            raw_sig, score_str = line.split("|", 1)
+            raw_sig = raw_sig.strip()        # keep the "<...>" form as-is
+            score = float(score_str.strip())  # convert score to float
+
+            scores[raw_sig] = score
+
+    return scores
+
 
 def simplify_method_label(raw_label: str) -> str:
     """
@@ -112,7 +140,7 @@ def main(graph_raw_path: str) -> None:
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python format_call_graph_dot_export.py <graph_raw.dot>")
+        print("Usage: python format_call_graph_dot_export.py <graphPath>")
         sys.exit(1)
 
     main(sys.argv[1])
