@@ -50,9 +50,6 @@ def simplify_method_label(raw_label: str) -> str:
     method = rest.strip().split("(")[0]  # "void <init>"
     method = method.split()[-1]          # "<init>"
 
-    # ✅ Convert "<init>" into a cleaner label
-    method = method.replace("<init>", "constructor")
-
     return f"{cls_short}.{method}"
 
 
@@ -60,20 +57,30 @@ def convert_to_clean_graphviz(input_str: str, scores_map: dict[str, float]) -> s
     edges = []
     nodes = set()
 
-    # ✅ Matches lines WITH or WITHOUT edge labels (your new format)
-    pattern = re.compile(
-        r'"?<([^>]+)>"?\s*->\s*"?<([^>]+)>"?\s*(?:\[\s*label\s*=\s*"([^"]+)"\s*\])?'
-    )
-
+    # Example lines to match:
+    # "<com.kuleuven.library.domain.Librarian: void <init>(java.lang.String)>"                       ->"<com.kuleuven.library.domain.User: void <init>(java.lang.String)>"[label="6"]
+    # "<com.kuleuven.library.actions.Library: void addItem(com.kuleuven.library.domain.LibraryItem)>"->"<java.util.List: boolean add(java.lang.Object)>"[label="23"]
+    # "<com.kuleuven.library.impl.LoggingListener: void <init>()>"                                   ->"<java.lang.Object: void <init>()>"[label="6"]
+    pattern = re.compile(r'^\"<.*>\"\s*->\s*\"<.*>\"\[label=".*"]$')
     for line in input_str.splitlines():
-        match = pattern.search(line)
-        if not match:
+        line = line.strip()
+        if not pattern.match(line):
             continue
 
-        src_raw, dst_raw, label = match.groups()
+        # 1) Split source and rest
+        if "->" not in line:
+            continue
+        left, right = line.split("->", 1)
 
-        src_raw_full = f"<{src_raw}>"
-        dst_raw_full = f"<{dst_raw}>"
+        # 2) Extract label
+        label = None
+        if "[label" in right:
+            right, label_part = right.split("[label", 1)
+            label = label_part.split("\"")[1]  # extract between quotes
+
+        # 3) Clean up identifiers
+        src_raw_full = left.strip().strip("\"")
+        dst_raw_full = right.strip().strip("\"").rstrip(";")
 
         edges.append((src_raw_full, dst_raw_full, label))
         nodes.add(src_raw_full)
