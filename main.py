@@ -140,7 +140,7 @@ def convert_to_clean_graphviz(input_str: str, scores_map: dict[str, float]) -> s
     return "\n".join(lines)
 
 
-def main(graph_raw_path: str, graph_ranking_path: str | None = None) -> None:
+def main(graph_raw_path: str, output_file_name: str, graph_ranking_path: str | None = None) -> None:
     with open(graph_raw_path, "r") as f:
         raw = f.read()
 
@@ -149,12 +149,12 @@ def main(graph_raw_path: str, graph_ranking_path: str | None = None) -> None:
 
     os.makedirs("out", exist_ok=True)
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    output_path = f"out/graph_clean_{timestamp}.dot"
+    output_path = f"out/{output_file_name}.dot"
 
-    with open(output_path, "w") as f:
+    with open(f"out/{output_file_name}_{timestamp}.dot", "w") as f:
         f.write(clean)
 
-    with open("out/graph_clean_temp.dot", "w") as f:
+    with open(output_path, "w") as f:
         f.write(clean)
 
     print(f"✅ Wrote cleaned file: {output_path}")
@@ -163,9 +163,10 @@ def main(graph_raw_path: str, graph_ranking_path: str | None = None) -> None:
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python format_call_graph_dot_export.py <graphPath> [rankingPath]")
+        print("Usage: python format_call_graph_dot_export.py <rawGraphPath> <outputFileName> [rankingPath]")
         sys.exit(1)
 
     graph_path = sys.argv[1]
-    ranking_path = sys.argv[2] if len(sys.argv) >= 3 else None
-    main(graph_path, ranking_path)
+    output_file_name = sys.argv[2]
+    ranking_path = sys.argv[3] if len(sys.argv) >= 4 else None
+    main(graph_path, output_file_name, ranking_path)

@@ -1,15 +1,16 @@
 set -e
 
-graphPath="$1"
-scoresPath="$2"
+rawGraphPath="$1"
+outputFileName="$2"
+scoresPath="$3"
 
-if [ -z "$graphPath" ]; then
-  echo "Usage: $0 <graph_path> [graph_ranking_path]"
+if [ -z "$rawGraphPath" ] || [ -z "$outputFileName" ]; then
+  echo "Usage: $0 <raw_graph_path> <output_file_name> [graph_ranking_path]"
   exit 1
 fi
 
-python3 main.py $graphPath $scoresPath
+python3 main.py $rawGraphPath $outputFileName $scoresPath
 
-dot -Tsvg out/graph_clean_temp.dot -o out/graph_clean_temp.svg
+dot -Tsvg out/"$outputFileName".dot -o out/"$outputFileName".svg
 
-open out/graph_clean_temp.svg
+open out/"$outputFileName".svg
