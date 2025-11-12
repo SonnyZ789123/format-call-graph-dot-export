@@ -3,19 +3,22 @@ import sys
 import os
 from datetime import datetime
 
-def get_page_rank_scores_as_map(path_to_scores: str) -> dict[str, float]:
+def get_graph_ranking_as_map(path_to_scores: str | None) -> dict[str, float]:
     """
     Reads a PageRank score file where each line has the format:
         <signature> | score
 
-    Example line:
-        <java.util.List: java.util.Iterator iterator()> | 0.01638346390050937
-
-    Returns:
-        A dictionary mapping the FULL RAW method signature string to its score.
-        Keys remain in the angle bracket format so they can match the call graph.
+    If the path is None or doesn't exist, returns an empty dictionary.
     """
     scores = {}
+
+    if not path_to_scores:
+        print("ℹ️  No scores file provided — continuing without graph ranking.")
+        return scores
+
+    if not os.path.exists(path_to_scores):
+        print(f"⚠️  Provided scores file not found: {path_to_scores} — ignoring.")
+        return scores
 
     with open(path_to_scores, "r") as f:
         for line in f:
@@ -26,9 +29,9 @@ def get_page_rank_scores_as_map(path_to_scores: str) -> dict[str, float]:
             raw_sig, score_str = line.split("|", 1)
             raw_sig = raw_sig.strip()        # keep the "<...>" form as-is
             score = float(score_str.strip())  # convert score to float
-
             scores[raw_sig] = score
 
+    print(f"✅ Loaded {len(scores)} scores.")
     return scores
 
 
@@ -137,18 +140,14 @@ def convert_to_clean_graphviz(input_str: str, scores_map: dict[str, float]) -> s
     return "\n".join(lines)
 
 
-def main(graph_raw_path: str, scores_path: str) -> None:
-    # Read raw DOT
+def main(graph_raw_path: str, graph_ranking_path: str | None = None) -> None:
     with open(graph_raw_path, "r") as f:
         raw = f.read()
 
-    scores = get_page_rank_scores_as_map(scores_path)
-
+    scores = get_graph_ranking_as_map(graph_ranking_path)
     clean = convert_to_clean_graphviz(raw, scores)
 
     os.makedirs("out", exist_ok=True)
-
-    # ✅ Create timestamped filename
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     output_path = f"out/graph_clean_{timestamp}.dot"
 
@@ -161,9 +160,12 @@ def main(graph_raw_path: str, scores_path: str) -> None:
     print(f"✅ Wrote cleaned file: {output_path}")
 
 
+
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python format_call_graph_dot_export.py <graphPath> <scoresPath>")
+        print("Usage: python format_call_graph_dot_export.py <graphPath> [rankingPath]")
         sys.exit(1)
 
-    main(sys.argv[1], sys.argv[2])
+    graph_path = sys.argv[1]
+    ranking_path = sys.argv[2] if len(sys.argv) >= 3 else None
+    main(graph_path, ranking_path)
