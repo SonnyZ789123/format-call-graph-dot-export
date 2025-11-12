@@ -107,7 +107,8 @@ def convert_to_clean_graphviz(input_str: str, scores_map: dict[str, float]) -> s
 
     # ✅ Create clusters, display simplified method name with score if available
     for cls, raw_nodes in sorted(clusters.items()):
-        lines.append(f'    subgraph cluster_{cls} {{')
+        safe_cls = re.sub(r'[^A-Za-z0-9_]', '_', cls) # graphviz errors on special chars like $
+        lines.append(f'    subgraph "cluster_{safe_cls}" {{')
         lines.append(f'        label = "{cls}";')
         lines.append('        style=rounded;')
 
