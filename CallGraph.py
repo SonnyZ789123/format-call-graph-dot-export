@@ -1,6 +1,6 @@
 import re
 from typing import TypeAlias, Final
-
+from pprint import pprint
 
 Node: TypeAlias = str
 Edge: TypeAlias = tuple[str, str, str | None]
@@ -66,12 +66,21 @@ class CallGraph:
             '    node [shape=box, fontsize=10];'
         ]
 
+
+        node_color_map = self.get_color_map(self.node_coverage)
+        print("\n🟩 Node Color Map:")
+        pprint(node_color_map, sort_dicts=False)
+
+        edge_color_map = self.get_color_map(self.edge_coverage)
+        print("\n🟩 Edge Color Map:")
+        pprint(edge_color_map, sort_dicts=False)
+
         clusters = self.get_clusters()
 
         # Add the lines for the nodes, and cluster the nodes
         for cls, raw_nodes in sorted(clusters.items()):
             safe_cls = re.sub(r'[^A-Za-z0-9_]', '_', cls)  # graphviz errors on special chars like $
-            all_green = all(self.node_coverage.get(raw, 0) > 0 for raw in raw_nodes)
+            all_green = all(raw in node_color_map for raw in raw_nodes)
 
             lines.append(f'    subgraph "cluster_{safe_cls}" {{')
             lines.append(f'        label = "{cls}"; {"color=green; fontcolor=green;" if all_green else ""}')
@@ -85,8 +94,8 @@ class CallGraph:
                 label_text = f"{method_only}\\n({score:.4f})" if score is not None else method_only
 
                 # color the node green if node covered
-                cov_score = self.node_coverage.get(raw_node_signature, 0)
-                color_attr = 'color="green", fontcolor="green"' if cov_score > 0 else ""
+                color = node_color_map.get(raw_node_signature, (0.0, None))[1]
+                color_attr = f'color="{color}", fontcolor="{color}"' if color is not None else ""
 
                 lines.append(f'        "{raw_node_signature}" [label="{label_text}" {color_attr}];')
             lines.append('    }')
@@ -94,12 +103,9 @@ class CallGraph:
         # Add the lines for the edges
         for src_raw, dst_raw, label in self.edges:
             edge_key = self.get_edge_key(src_raw, dst_raw)
-            cov_score = 0
-            # keys in JSON look like "<src>"->"<dst>" (already quoted inside)
-            if edge_key in self.edge_coverage:
-                cov_score += self.edge_coverage[edge_key]
 
-            color_attr = 'color="green", fontcolor="green"' if cov_score > 0 else ''
+            color = edge_color_map.get(edge_key, (0.0, None))[1]
+            color_attr = f'color="{color}", fontcolor="{color}"' if color is not None else ""
             if label:
                 lines.append(f'    "{src_raw}"->"{dst_raw}"[label="{label}" {color_attr}];')
             else:
@@ -107,6 +113,74 @@ class CallGraph:
 
         lines.append('}')
         return "\n".join(lines)
+
+
+    def get_color_map(self, coverage: dict[str, float]) -> dict[str, tuple[float, str]]:
+        """
+        Generalized function to create a color map for a given coverage dictionary.
+        - Filters uncovered items
+        - Normalizes covered values
+        - Maps to green intensity via _get_green_intensity(score)
+
+        Returns:
+            A dictionary mapping each key -> (normalized_score, color_hex)
+        """
+        filtered = self._filter_covered(coverage)
+        normalized = self._normalize_coverage(filtered)
+
+        color_map: Final[dict[str, tuple[float, str]]] = {
+            k: (v, self._get_green_intensity(v)) for k, v in normalized.items()
+        }
+        return color_map
+
+
+    @staticmethod
+    def _filter_covered(coverage: dict[str, float]) -> dict[str, float]:
+        """
+        Filter a coverage dictionary so only entries with coverage > 0 remain.
+        """
+        return {k: v for k, v in coverage.items() if v > 0}
+
+
+    @staticmethod
+    def _normalize_coverage(coverage: dict[str, float]) -> dict[str, float]:
+        """
+        Normalize a single coverage dictionary to [0, 1] using (score - min) / (max - min).
+        If all values are equal, returns all 1.0.
+        """
+        if not coverage:
+            return {}
+        min_v = min(coverage.values())
+        max_v = max(coverage.values())
+        if max_v == min_v:
+            return {k: 1.0 for k in coverage}
+        return {k: (v - min_v) / (max_v - min_v) for k, v in coverage.items()}
+
+
+    @staticmethod
+    def _get_green_intensity(score: float) -> str:
+        """
+        Given a float between 0 and 1, return a hex color string representing
+        a green intensity. Includes a baseline so score=0 is still visibly green.
+
+        Returns: e.g., '#66FF66' (bright) or '#339933' (medium green)
+        """
+
+        # Clamp score to [0, 1]
+        clamped_score = max(0.0, min(1.0, score))
+
+        # Baseline intensity (0 → visible medium green)
+        baseline = 0.35  # try between 0.3–0.5 for desired brightness
+
+        # Linear interpolation between baseline and full brightness
+        intensity = baseline + (1.0 - baseline) * clamped_score
+
+        # Convert to RGB hex (keep R & B slightly above 0 for warmth if desired)
+        green_value = int(255 * intensity)
+        red_value = int(30 * (1 - clamped_score))  # subtle tint, optional
+        blue_value = int(30 * (1 - clamped_score))  # subtle tint, optional
+
+        return f"#{red_value:02X}{green_value:02X}{blue_value:02X}"
 
 
     @staticmethod
