@@ -165,7 +165,7 @@ def main(graph_raw_path: str, output_file_name: str,
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 4:
+    if len(sys.argv) < 3:
         print("Usage: python format_call_graph_dot_export.py <rawGraphPath> <outputFileName> [nodeCoverage.json] [edgeCoverage.json] [rankingPath]")
         sys.exit(1)
 
