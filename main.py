@@ -5,49 +5,17 @@ import json
 from datetime import datetime
 
 
-def load_json_coverage(path: str | None) -> dict[str, float]:
-    """Load coverage JSON as a dict. Returns empty dict if path missing or invalid."""
+
+
+def load_json_key_float_dictionary(path: str | None) -> dict[str, float]:
+    """Load JSON as a dict of keys and floats. Returns empty dict if path missing or invalid."""
     if not path or not os.path.exists(path):
-        print(f"⚠️  Coverage file not found or not provided: {path}")
+        print(f"⚠️  JSON file not found or not provided: {path}")
         return {}
     with open(path, "r") as f:
         data = json.load(f)
-    print(f"✅ Loaded {len(data)} coverage entries from {path}")
+    print(f"✅ Loaded {len(data)} entries from {path}")
     return data
-
-
-def get_graph_ranking_as_map(path_to_scores: str | None) -> dict[str, float]:
-    """
-    Reads a PageRank score file where each line has the format:
-        <signature> | score
-
-    If the path is None or doesn't exist, returns an empty dictionary.
-    """
-    scores = {}
-
-    if not path_to_scores:
-        print("ℹ️  No scores file provided — continuing without graph ranking.")
-        return scores
-
-    if not os.path.exists(path_to_scores):
-        print(f"⚠️  Provided scores file not found: {path_to_scores} — ignoring.")
-        return scores
-
-    with open(path_to_scores, "r") as f:
-        for line in f:
-            line = line.strip()
-            if not line or "|" not in line:
-                continue
-
-            raw_sig, score_str = line.split("|", 1)
-            raw_sig = raw_sig.strip()
-            try:
-                scores[raw_sig] = float(score_str.strip())
-            except ValueError:
-                continue
-
-    print(f"✅ Loaded {len(scores)} graph ranking scores.")
-    return scores
 
 
 def simplify_method_label(raw_label: str) -> str:
@@ -179,9 +147,9 @@ def main(graph_raw_path: str, output_file_name: str,
     with open(graph_raw_path, "r") as f:
         raw = f.read()
 
-    scores = get_graph_ranking_as_map(graph_ranking_path)
-    node_cov = load_json_coverage(node_cov_path)
-    edge_cov = load_json_coverage(edge_cov_path)
+    scores = load_json_key_float_dictionary(graph_ranking_path)
+    node_cov = load_json_key_float_dictionary(node_cov_path)
+    edge_cov = load_json_key_float_dictionary(edge_cov_path)
 
     clean = convert_to_clean_graphviz(raw, scores, node_cov, edge_cov)
 
