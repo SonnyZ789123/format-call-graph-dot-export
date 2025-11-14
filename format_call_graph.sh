@@ -6,8 +6,8 @@ nodeCoveragePath="$3"
 edgeCoveragePath="$4"
 scoresPath="$5"
 
-if [ -z "$rawGraphPath" ] || [ -z "$outputFileName" ] || [ -z "$nodeCoveragePath" ] || [ -z "$edgeCoveragePath" ]; then
-  echo "Usage: $0 <raw_graph_path> <output_file_name> <node_coverage_path> <edge_coverage_path> [graph_ranking_path]"
+if [ -z "$rawGraphPath" ] || [ -z "$outputFileName" ]; then
+  echo "Usage: $0 <raw_graph_path> <output_file_name> [node_coverage_path] [edge_coverage_path] [graph_ranking_path]"
   exit 1
 fi
 

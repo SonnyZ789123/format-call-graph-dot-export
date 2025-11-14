@@ -195,13 +195,13 @@ def main(graph_raw_path: str, output_file_name: str,
 
 if __name__ == "__main__":
     if len(sys.argv) < 4:
-        print("Usage: python format_call_graph_dot_export.py <rawGraphPath> <outputFileName> <nodeCoverage.json> <edgeCoverage.json> [rankingPath]")
+        print("Usage: python format_call_graph_dot_export.py <rawGraphPath> <outputFileName> [nodeCoverage.json] [edgeCoverage.json] [rankingPath]")
         sys.exit(1)
 
     graph_path = sys.argv[1]
     output_file_name = sys.argv[2]
-    node_cov_path = sys.argv[3]
-    edge_cov_path = sys.argv[4]
+    node_cov_path = sys.argv[3] if len(sys.argv) >= 4 else None
+    edge_cov_path = sys.argv[4] if len(sys.argv) >= 5 else None
     ranking_path = sys.argv[5] if len(sys.argv) >= 6 else None
 
     main(graph_path, output_file_name, ranking_path, node_cov_path, edge_cov_path)
