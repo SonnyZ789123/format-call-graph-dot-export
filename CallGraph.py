@@ -1,6 +1,5 @@
 import re
 from typing import TypeAlias, Final
-from pprint import pprint
 
 Node: TypeAlias = str
 Edge: TypeAlias = tuple[str, str, str | None]
@@ -66,14 +65,8 @@ class CallGraph:
             '    node [shape=box, fontsize=10];'
         ]
 
-
         node_color_map = self.get_color_map(self.node_coverage)
-        print("\n🟩 Node Color Map:")
-        pprint(node_color_map, sort_dicts=False)
-
         edge_color_map = self.get_color_map(self.edge_coverage)
-        print("\n🟩 Edge Color Map:")
-        pprint(edge_color_map, sort_dicts=False)
 
         clusters = self.get_clusters()
 
@@ -161,7 +154,7 @@ class CallGraph:
     def _get_green_intensity(score: float) -> str:
         """
         Given a float between 0 and 1, return a hex color string representing
-        a green intensity. Includes a baseline so score=0 is still visibly green.
+        a green intensity. Includes a brighter baseline so score=0 is visibly green.
 
         Returns: e.g., '#66FF66' (bright) or '#339933' (medium green)
         """
@@ -169,18 +162,14 @@ class CallGraph:
         # Clamp score to [0, 1]
         clamped_score = max(0.0, min(1.0, score))
 
-        # Baseline intensity (0 → visible medium green)
-        baseline = 0.35  # try between 0.3–0.5 for desired brightness
+        baseline = 0.5  # try 0.35–0.5 range depending on contrast preference
 
-        # Linear interpolation between baseline and full brightness
+        # Compute intensity (linear interpolation)
         intensity = baseline + (1.0 - baseline) * clamped_score
 
-        # Convert to RGB hex (keep R & B slightly above 0 for warmth if desired)
+        # Convert to RGB hex — green channel scales with intensity
         green_value = int(255 * intensity)
-        red_value = int(30 * (1 - clamped_score))  # subtle tint, optional
-        blue_value = int(30 * (1 - clamped_score))  # subtle tint, optional
-
-        return f"#{red_value:02X}{green_value:02X}{blue_value:02X}"
+        return f"#00{green_value:02X}00"
 
 
     @staticmethod
