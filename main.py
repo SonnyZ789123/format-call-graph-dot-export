@@ -4,7 +4,7 @@ import os
 import json
 from datetime import datetime
 
-
+from CallGraph import CallGraph
 
 
 def load_json_key_float_dictionary(path: str | None) -> dict[str, float]:
@@ -18,41 +18,13 @@ def load_json_key_float_dictionary(path: str | None) -> dict[str, float]:
     return data
 
 
-def simplify_method_label(raw_label: str) -> str:
-    """
-    Convert a full signature like:
-    <com.kuleuven.library.Book: void <init>(java.lang.String)>
-    into a short clean label:
-    Book.constructor
-    """
-    # extract inside "< >"
-    inner = raw_label.strip("<>")
-    if ":" not in inner:
-        return inner
-
-    # split "class: return method(params)"
-    cls, rest = inner.split(":", 1)
-    cls_short = cls.split(".")[-1]
-
-    # extract method name before '(' and after space
-    method = rest.strip().split("(")[0]  # "void <init>"
-    method = method.split()[-1]          # "<init>"
-
-    return f"{cls_short}.{method}"
-
-
-def convert_to_clean_graphviz(input_str: str, scores_map: dict[str, float],
-                              node_cov: dict[str, float], edge_cov: dict[str, float]) -> str:
+def extract_nodes_and_edges_from_raw_dot_file(raw_dot_str: str) -> tuple[set[str], list[tuple[str, str, str | None]]]:
     edges = []
     nodes = set()
 
-    # Example lines to match:
-    # "<com.kuleuven.library.domain.Librarian: void <init>(java.lang.String)>"                       ->"<com.kuleuven.library.domain.User: void <init>(java.lang.String)>"[label="6"]
-    # "<com.kuleuven.library.actions.Library: void addItem(com.kuleuven.library.domain.LibraryItem)>"->"<java.util.List: boolean add(java.lang.Object)>"[label="23"]
-    # "<com.kuleuven.library.impl.LoggingListener: void <init>()>"                                   ->"<java.lang.Object: void <init>()>"[label="6"]
     pattern = re.compile(r'^\"<.*>\"\s*->\s*\"<.*>\"\[label=".*"]$')
 
-    for line in input_str.splitlines():
+    for line in raw_dot_str.splitlines():
         line = line.strip()
         if not pattern.match(line):
             continue
@@ -76,71 +48,11 @@ def convert_to_clean_graphviz(input_str: str, scores_map: dict[str, float],
         nodes.add(src_raw_full)
         nodes.add(dst_raw_full)
 
-    # Group nodes by class name extracted from *simplified* label (for clustering only)
-    clusters = {}
-    for raw in nodes:
-        simplified = simplify_method_label(raw)
-        cls = simplified.split(".", 1)[0]
-        clusters.setdefault(cls, []).append(raw)
-
-    lines = [
-        'digraph ObjectGraph {',
-        '    rankdir=LR;',
-        '    graph [',
-        '        ranksep=1.8,',  # vertical spacing
-        '        nodesep=0.1,',  # horizontal spacing
-        '        overlap=false,',
-        '        splines=true',
-        '    ];',
-        '    node [shape=box, fontsize=10];'
-    ]
-
-    # ✅ Create clusters, display simplified method name with score if available
-    for cls, raw_nodes in sorted(clusters.items()):
-        safe_cls = re.sub(r'[^A-Za-z0-9_]', '_', cls) # graphviz errors on special chars like $
-        all_green = all(node_cov.get(raw, 0) > 0 for raw in raw_nodes)
-
-        lines.append(f'    subgraph "cluster_{safe_cls}" {{')
-        lines.append(f'        label = "{cls}"; {"color=green; fontcolor=green;" if all_green else ""}')
-        lines.append(f'        style=rounded; {"color=green;" if all_green else ""}')
+    return nodes, edges
 
 
-        for raw in sorted(raw_nodes):
-            simplified = simplify_method_label(raw)
-            method_only = simplified.split(".", 1)[1]
-
-            score = scores_map.get(raw, None)
-            label_text = f"{method_only}\\n({score:.4f})" if score is not None else method_only
-
-            # color the node green if node covered
-            cov_score = node_cov.get(raw, 0)
-            if cov_score > 0:
-                color_attr = 'color="green", fontcolor="green"'
-            else:
-                color_attr = ''
-
-            lines.append(f'        "{raw}" [label="{label_text}" {color_attr}];')
-        lines.append('    }')
-
-    # ✅ Add edges, node IDs remain RAW
-    for src_raw, dst_raw, label in edges:
-        edge_key = f'"{src_raw}"->"{dst_raw}"'
-        cov_score = 0
-        # keys in JSON look like "<src>"->"<dst>" (already quoted inside)
-        if edge_key in edge_cov:
-            cov_score += edge_cov[edge_key]
-
-        color_attr = 'color="green", fontcolor="green"' if cov_score > 0 else ''
-        if label:
-            lines.append(f'    "{src_raw}"->"{dst_raw}"[label="{label}" {color_attr}];')
-        else:
-            lines.append(f'    "{src_raw}"->"{dst_raw}"[{color_attr}];')
-
-    lines.append('}')
-    return "\n".join(lines)
-
-
-def main(graph_raw_path: str, output_file_name: str,
+def main(graph_raw_path: str,
+         output_file_name: str,
          graph_ranking_path: str | None = None,
          node_cov_path: str | None = None,
          edge_cov_path: str | None = None) -> None:
@@ -151,16 +63,20 @@ def main(graph_raw_path: str, output_file_name: str,
     node_cov = load_json_key_float_dictionary(node_cov_path)
     edge_cov = load_json_key_float_dictionary(edge_cov_path)
 
-    clean = convert_to_clean_graphviz(raw, scores, node_cov, edge_cov)
+    nodes, edges = extract_nodes_and_edges_from_raw_dot_file(raw)
+
+    call_graph = CallGraph(nodes, edges, node_coverage=node_cov, edge_coverage=edge_cov, graph_ranking=scores)
+
+    dot_export = call_graph.export_to_dot()
 
     os.makedirs("out", exist_ok=True)
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     output_path = f"out/{output_file_name}.dot"
 
     with open(f"out/{output_file_name}_{timestamp}.dot", "w") as f:
-        f.write(clean)
+        f.write(dot_export)
     with open(output_path, "w") as f:
-        f.write(clean)
+        f.write(dot_export)
     print(f"✅ Wrote cleaned file: {output_path}")
 
 
