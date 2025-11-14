@@ -130,9 +130,12 @@ def convert_to_clean_graphviz(input_str: str, scores_map: dict[str, float],
     # ✅ Create clusters, display simplified method name with score if available
     for cls, raw_nodes in sorted(clusters.items()):
         safe_cls = re.sub(r'[^A-Za-z0-9_]', '_', cls) # graphviz errors on special chars like $
+        all_green = all(node_cov.get(raw, 0) > 0 for raw in raw_nodes)
+
         lines.append(f'    subgraph "cluster_{safe_cls}" {{')
-        lines.append(f'        label = "{cls}";')
-        lines.append('        style=rounded;')
+        lines.append(f'        label = "{cls}"; {"color=green; fontcolor=green;" if all_green else ""}')
+        lines.append(f'        style=rounded; {"color=green;" if all_green else ""}')
+
 
         for raw in sorted(raw_nodes):
             simplified = simplify_method_label(raw)
