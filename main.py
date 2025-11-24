@@ -87,8 +87,8 @@ if __name__ == "__main__":
 
     graph_path = sys.argv[1]
     output_file_name = sys.argv[2]
-    node_cov_path = sys.argv[3] if len(sys.argv) >= 4 else None
-    edge_cov_path = sys.argv[4] if len(sys.argv) >= 5 else None
-    ranking_path = sys.argv[5] if len(sys.argv) >= 6 else None
+    ranking_path = sys.argv[3] if len(sys.argv) >= 4 else None
+    node_cov_path = sys.argv[4] if len(sys.argv) >= 5 else None
+    edge_cov_path = sys.argv[5] if len(sys.argv) >= 6 else None
 
-    main(graph_path, output_file_name, ranking_path, node_cov_path, edge_cov_path)
+    main(graph_path, output_file_name, graph_ranking_path=ranking_path, node_cov_path=node_cov_path, edge_cov_path=edge_cov_path)
